@@ -1,0 +1,34 @@
+* {
+  margin: 0;
+  padding: 0;
+ }
+body {
+  width: 100vw;
+  min-height: 100vh;
+}
+
+#graphics {
+  width: 100vw;
+  height: 100vh;
+  background: #ddd;
+  align-items: center;
+}
+
+#clearBTN {
+  position: absolute;
+  background: #fff;
+  border: solid 2px #000;
+  top: 20px;
+  right: 10px;
+  padding: 8px 15px;
+  font-size: 13px;
+}
+#downloadBTN {
+  position: absolute;
+  background: #fff;
+  border: solid 2px #000;
+  bottom: 20px;
+  right: 10px;
+  padding: 1px 1px;
+  font-size: 13px;
+}
