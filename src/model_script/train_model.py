@@ -1,3 +1,4 @@
+#This model script isnt being used anymore due to improper performance while detecting the digits and overfiiting issues  , please use the enhanced labelled script only 
 import pandas as pd
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler

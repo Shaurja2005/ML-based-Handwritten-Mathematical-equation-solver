@@ -1,14 +1,38 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Handwritten Math Solver</title>
     <link rel="stylesheet" href="styles.css" />
-    <title>CANVAS</title>
   </head>
   <body>
-    <canvas id="graphics"></canvas>
-    <div class="controls">
-      <button id="clearBTN" type="button">CLEAR ALL</button>
+    <!-- Top Toolbar -->
+    <header id="toolbar">
+      <div id="equation-bar">
+        <span id="equation-label">Equation:</span>
+        <span id="equation-display"></span>
+        <span id="equation-result"></span>
+      </div>
+      <div id="toolbar-actions">
+        <button id="solveBtn" type="button">SOLVE</button>
+        <button id="undoBtn" type="button">UNDO</button>
+        <button id="clearBtn" type="button">CLEAR</button>
+      </div>
+    </header>
+
+    <!-- Canvas Area: display layer (digital chars) + drawing layer (ink) -->
+    <div id="canvas-container">
+      <canvas id="display-canvas"></canvas>
+      <canvas id="drawing-canvas"></canvas>
     </div>
+
+    <!-- Status Bar -->
+    <footer id="status-bar">
+      <span id="status-text">Draw a character to begin</span>
+      <span id="confidence-text"></span>
+    </footer>
+
     <script src="main.js"></script>
   </body>
 </html>

@@ -1,3 +1,4 @@
+#this feature scaling script is not in use anymore as the features are inadequate and are not giving proper results, use the enhanced script instead
 import os
 import json
 import csv
