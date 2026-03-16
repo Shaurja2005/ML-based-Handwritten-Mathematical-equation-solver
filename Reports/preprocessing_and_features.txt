@@ -1,0 +1,27 @@
+Preprocessing and Feature Extraction Strategy
+============================================
+
+1. Preprocessing
+----------------
+- **Resampling:** Each stroke is resampled to 30 evenly spaced points using linear interpolation along the stroke path. This standardizes the number of points per stroke, making features robust to drawing speed and device resolution.
+- **Normalization:** All strokes are normalized to fit within a unit square (1x1) using max-dimension scaling. This removes the effect of absolute size and position, focusing the model on shape.
+
+2. Feature Extraction (Enhanced, 48 features)
+---------------------------------------------
+- **Base Features (6):**
+  - Number of strokes
+  - Width, height, aspect ratio
+  - Total stroke length
+  - Area of bounding box
+- **Direction Histogram (8):**
+  - Histogram of stroke directions (angles), capturing overall shape and orientation. Critical for distinguishing mirror-image symbols like '(' and ')'.
+- **Curvature Statistics (4):**
+  - Mean, standard deviation, max, and total absolute curvature. Helps separate curved from angular symbols.
+- **Endpoints (4):**
+  - Start and end (x, y) positions of the first stroke, encoding stroke order and orientation.
+- **Direction Changes (1):**
+  - Number of significant direction changes (cusps/corners), useful for symbols with sharp turns.
+- **Grid Zone Densities (25):**
+  - Point density in a 5x5 spatial grid, providing fine-grained spatial distribution of ink.
+
+This strategy provides the model with both global and local shape information, as well as dynamic properties of the handwriting, resulting in high recognition accuracy.

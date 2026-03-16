@@ -1,0 +1,16 @@
+it uses GridSearchCV which trains models multiple times:
+
+SVM:
+
+5-fold cross-validation with 16 parameter combinations = 80 total trainings
+
+Random Forest:
+
+5-fold cross-validation with 36 parameter combinations = 180 total trainings
+Each Random Forest has n_estimators: [100, 200, 300] (number of decision trees)
+
+Gradient Boosting:
+
+3-fold cross-validation with 18 parameter combinations = 54 total trainings
+Each model has n_estimators: [100, 200] (number of boosting rounds/iterations)
+So if you're asking about boosting iterations specifically, it's 100-200 iterations for Gradient Boosting.

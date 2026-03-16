@@ -222,7 +222,9 @@ function buildDisplayHTML() {
   let inSup = false;
 
   for (const ch of recognizedChars) {
-    if (ch.isSuperscript) {
+    const shouldSuperscript = ch.isSuperscript && isExponentEligible(ch.math);
+
+    if (shouldSuperscript) {
       if (!inSup) {
         html += "<sup>";
         inSup = true;
@@ -246,7 +248,9 @@ function buildMathString() {
   let inSup = false;
 
   for (const ch of recognizedChars) {
-    if (ch.isSuperscript) {
+    const shouldSuperscript = ch.isSuperscript && isExponentEligible(ch.math);
+
+    if (shouldSuperscript) {
       if (!inSup) {
         str += "^(";
         inSup = true;
@@ -263,6 +267,10 @@ function buildMathString() {
   if (inSup) str += ")";
 
   return str;
+}
+
+function isExponentEligible(token) {
+  return /^[0-9a-zA-Z]$/.test(token);
 }
 
 function escapeHTML(str) {

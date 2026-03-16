@@ -86,7 +86,7 @@ Holdout Test Accuracy: 88.72%
 
 accuracy                           0.89      1232
 
-after 4th adjustment the best fitting model after hyperparameter tuning:
+after 4th adjustment the best fitting model after hyperparameter tuning:(currently used models)
 
 Gradient Boosting Classifier
 ============================================================

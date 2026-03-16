@@ -231,7 +231,6 @@ def main():
         joblib.dump(best_scaler, "models/best_scaler.pkl")
         print("Saved: models/best_scaler.pkl")
     
-    # Also save SVM specifically (since backend uses it)
     joblib.dump(svm_model, "models/svm_model_enhanced.pkl")
     joblib.dump(svm_scaler, "models/scaler_enhanced.pkl")
     print("Saved: models/svm_model_enhanced.pkl, models/scaler_enhanced.pkl")

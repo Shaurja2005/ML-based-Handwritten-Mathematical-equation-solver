@@ -55,11 +55,7 @@ def compute_direction_histogram(strokes, num_bins=8):
 
 
 def compute_curvature_features(strokes):
-    """
-    Compute curvature statistics across all strokes.
-    Curvature = rate of change of direction.
-    Returns: [mean_curvature, std_curvature, max_curvature, total_curvature]
-    """
+   
     curvatures = []
     
     for stroke in strokes:
@@ -95,11 +91,7 @@ def compute_curvature_features(strokes):
 
 
 def compute_endpoint_features(strokes):
-    """
-    Extract start and end point positions of the first stroke.
-    Normalized to [0,1] range.
-    Returns: [start_x, start_y, end_x, end_y]
-    """
+   
     if not strokes or not strokes[0]:
         return [0.0, 0.0, 0.0, 0.0]
     
@@ -235,10 +227,8 @@ def calculate_enhanced_features(filepath):
     for name, val in zip(ep_names, endpoint_feats):
         features[name] = round(val, 6)
     
-    # Direction changes (1)
     features["dir_changes"] = dir_changes
     
-    # 5x5 Grid (25)
     for i, val in enumerate(grid_5x5):
         features[f"grid_{i}"] = round(val, 6)
     

@@ -89,7 +89,14 @@ def _solve_equation_mode(math_str):
     lhs_str = parts[0].strip()
     rhs_str = parts[1].strip()
 
-    if not lhs_str or not rhs_str:
+    if not lhs_str and not rhs_str:
+        return {'success': False, 'error': 'Incomplete equation (empty side)'}
+
+    # Support trailing '=' as "evaluate expression" (e.g., 7+9=)
+    if lhs_str and not rhs_str:
+        return _evaluate_expression_mode(lhs_str)
+
+    if not lhs_str and rhs_str:
         return {'success': False, 'error': 'Incomplete equation (empty side)'}
 
     lhs = parse_expr(lhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x})

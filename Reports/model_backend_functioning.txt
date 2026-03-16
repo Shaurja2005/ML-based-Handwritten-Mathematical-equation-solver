@@ -1,0 +1,41 @@
+
+Here’s a clear summary:
+
+Models Used
+SVM (Support Vector Machine): Main classifier, trained with 48 enhanced features. Best accuracy (98.38%) — this is the model your backend uses for live predictions.
+Random Forest (RF): Tree-based classifier, used for comparison. Slightly lower accuracy (98.05%).
+Gradient Boosting (GB): Ensemble classifier, also for comparison. Accuracy (98.30%).
+Only the SVM model is used in production. The others are for benchmarking.
+
+What train_model_enhanced.py Does
+Loads enhanced dataset (dataset_enhanced.csv) with 48 features per sample.
+Splits data into training and test sets (stratified, 80/20).
+Trains SVM with GridSearchCV:
+Searches for best hyperparameters (C, gamma).
+Scales features with StandardScaler.
+Evaluates with cross-validation and test set.
+Trains Random Forest and Gradient Boosting:
+Uses GridSearchCV for best parameters.
+Evaluates accuracy and feature importance.
+Prints confusion pairs: Shows which classes are most often confused.
+Saves models:
+Best SVM model as svm_model_enhanced.pkl and scaler as scaler_enhanced.pkl.
+Also saves best overall model as best_model.pkl.
+Backend Architecture
+Flask app (app.py):
+Loads the enhanced SVM model and scaler at startup.
+Uses pipeline_enhanced.py for live feature extraction.
+Provides two main API endpoints:
+/api/predict: Receives stroke data, extracts features, predicts character, returns label and confidence.
+/api/solve: Receives math expression, parses and solves it using SymPy.
+Serves the frontend (HTML/JS/CSS) for drawing and equation input.
+Flow:
+User draws → frontend sends strokes → backend extracts features → SVM predicts → frontend displays result → user can solve equations.
+
+svm_model_enhanced.pkl: The SVM classifier trained on the enhanced 48-feature dataset. This is the model your backend uses for live predictions.
+
+scaler_enhanced.pkl: The StandardScaler fitted to the enhanced features. It normalizes input features before prediction. The backend uses this alongside the SVM model.
+
+best_model.pkl: The best classifier found during training (could be SVM, Random Forest, or Gradient Boosting, depending on which had highest test accuracy). This is for reference or further analysis, not used by the backend.
+
+best_scaler.pkl: The scaler for the best model (if the best model needs scaling, e.g., SVM). If the best model is a tree-based classifier (RF or GB), this may be unused.

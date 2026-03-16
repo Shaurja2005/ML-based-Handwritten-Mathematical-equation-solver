@@ -40,15 +40,27 @@ CONFIDENCE_THRESHOLD = 0.60
 # ─── Label Mappings ─────────────────────────────────────────────
 # Model labels -> Unicode display characters
 DISPLAY_MAP = {
-    '\\\\div': '\u00f7',   # model label is \\div (double backslash)
+    '\\div': '\u00f7',     # model label is \div (single backslash)
+    '\\\\div': '\u00f7',   # backward compatibility for older label format
     '\\times': '\u00d7',    # model label is \times (single backslash)
+    '\\times': '\u00d7',   # backward compatibility for older label format
+    '\minus': '-',
+    '\\minus': '-',
+    '\u2212': '-',
 }
 
 # Model labels -> math-safe characters (for solver parsing)
 MATH_MAP = {
+    '\\div': '/',
     '\\\\div': '/',
     '\\times': '*',
+    '\\times': '*',
+    '\minus': '-',
+    '\\minus': '-',
+    '\u2212': '-',
 }
+
+NON_SUPERSCRIPT_MATH_SYMBOLS = {'+', '-', '*', '/', '=', '\u00d7', '\u00f7'}
 
 # ─── Load Model & Scaler ────────────────────────────────────────
 model = None
@@ -169,6 +181,10 @@ def api_predict():
     prev = data.get('previousCharacter')
     prev_bbox = prev.get('bbox') if prev else None
     is_superscript = detect_superscript(bbox, prev_bbox)
+
+    # Never classify math symbols/operators as superscript
+    if math_char in NON_SUPERSCRIPT_MATH_SYMBOLS:
+        is_superscript = False
 
     return jsonify({
         'recognized': True,
