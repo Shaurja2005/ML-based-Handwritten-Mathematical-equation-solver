@@ -2,6 +2,9 @@
 
 A full-stack application that recognizes handwritten mathematical symbols from online strokes, builds equations in real time, and solves them.
 
+
+**Now with 2D Graphing, History, and Dark Mode!**
+
 This project uses **traditional machine learning only** (scikit-learn), with no deep learning models.
 
 ---
@@ -10,14 +13,16 @@ This project uses **traditional machine learning only** (scikit-learn), with no 
 
 The system converts raw canvas strokes into recognized symbols and then into solvable math expressions.
 
+
 High-level flow:
 
 1. User draws on browser canvas.
 2. Frontend sends stroke JSON to backend (`/api/predict`) after 800 ms idle.
 3. Backend preprocesses strokes, extracts features, runs SVM prediction.
 4. Backend returns symbol + confidence + superscript flag.
-5. Frontend builds equation string and calls `/api/solve` when requested.
-6. Backend solves with SymPy and returns result/error.
+5. Frontend builds equation string and calls `/api/solve` (Solve button) or `/api/plot` (Plot button).
+6. Backend solves with SymPy and returns result/error or plot data.
+7. All solved equations and plotted functions are saved in the History sidebar for instant recall.
 
 ---
 
@@ -27,8 +32,11 @@ High-level flow:
 - Confidence-based rejection (`Not Recognized` below threshold)
 - Superscript detection for exponents using spatial heuristics
 - Equation parsing + solving with SymPy (supports `^`, implicit multiplication)
-- Expression evaluation mode (`2+3` -> `= 5`)
-- Equation solving mode (`2*x+4=10` -> `x = 3`)
+- Expression evaluation mode (`2+3` → `= 5`)
+- Equation solving mode (`2*x+4=10` → `x = 3`)
+- **2D Graphing/Plotting:** Draw any function or equation and click **Plot** to see a Chart.js-powered graph in a modal popup.
+- **History Sidebar:** All solved equations and plotted graphs are saved. Click any entry to instantly reload it.
+- **Dark Mode:** Toggle with the toolbar button. All UI, history, and plots adapt to your theme.
 - Browser UI with dual canvas layers (ink + digital rendering)
 
 ---
@@ -39,11 +47,12 @@ High-level flow:
 
 - HTML, CSS, JavaScript (vanilla)
 - HTML5 Canvas for drawing and digital glyph rendering
+- Chart.js (CDN) for 2D plotting
 
 ### Backend
 
 - Flask + Flask-CORS
-- SymPy for parsing/equation solving
+- SymPy for parsing/equation solving and plotting
 
 ### ML/Training
 
@@ -177,9 +186,10 @@ Main entry: `backend/src/app.py`
 
 ---
 
+
 ## 9) Frontend Architecture
 
-Core file: `frontend/src/main.js`
+Core files: `frontend/src/main.js`, `index.html`, `styles.css`
 
 - Two canvas layers:
   - `drawing-canvas` for user ink
@@ -187,7 +197,10 @@ Core file: `frontend/src/main.js`
 - Idle recognition trigger: 800 ms after stroke stop
 - Character-level equation construction
 - Superscript-aware rendering and math string generation
-- Buttons: Solve, Undo, Clear
+- **Buttons:** Solve, Undo, Clear, **Plot**, History, Dark Mode
+- **Plot Modal:** Chart.js-powered popup for 2D function graphs
+- **History Sidebar:** All solves and plots are saved for instant recall
+- **Dark Mode:** Toggle persists across reloads
 - Status + confidence feedback in bottom bar
 
 ---
@@ -236,6 +249,7 @@ Low-confidence response:
 }
 ```
 
+
 ### `POST /api/solve`
 
 Request:
@@ -254,6 +268,31 @@ Error:
 
 ```json
 { "success": false, "error": "Invalid characters in equation" }
+```
+
+### `POST /api/plot`
+
+Request:
+
+```json
+{ "equation": "y = x^2" }
+```
+
+Success:
+
+```json
+{
+  "success": true,
+  "x": [ ... ],
+  "y": [ ... ],
+  "label": "f(x) = x**2"
+}
+```
+
+Error:
+
+```json
+{ "success": false, "error": "Invalid characters for plotting" }
 ```
 
 ---
@@ -294,11 +333,21 @@ venv\Scripts\activate
 python backend/src/app.py
 ```
 
+
 Then open:
 
 ```text
 http://localhost:5000
 ```
+
+---
+
+## 11.1) Feature Usage
+
+- **Solving:** Draw an equation or expression, click **Solve**. Result appears below and is saved to History.
+- **Plotting:** Draw a function (e.g., `y = x^2`, `sin(x)`, `x^2 = 4`) and click **Plot**. A modal with a 2D graph appears. The plot is also saved to History.
+- **History:** Click the **History** button to open the sidebar. Click any entry to reload that equation/plot.
+- **Dark Mode:** Toggle with the toolbar button. All UI and plots adapt instantly.
 
 ---
 

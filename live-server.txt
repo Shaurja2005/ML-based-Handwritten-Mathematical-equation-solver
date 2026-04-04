@@ -1,1 +1,1 @@
-type conda activate base once, then python backend\src\app.py any time in the same session in the terminal
+type .\venv\Scripts\activate  once, then python backend\src\app.py any time in the same session in the terminal
