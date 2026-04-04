@@ -30,6 +30,7 @@ let pendingStrokes = []; // Strokes not yet sent for prediction
 let recognizedChars = []; // {display, math, bbox, isSuperscript}
 let idleTimer = null;
 let predicting = false; // Lock to prevent overlapping requests
+let finalSolution = null; // Store solved result to display on canvas
 
 // ─── Canvas Sizing ─────────────────────────────────────────────
 function resizeCanvases() {
@@ -117,6 +118,7 @@ function startIdleTimer() {
 async function sendForPrediction() {
   if (pendingStrokes.length === 0 || predicting) return;
   predicting = true;
+  finalSolution = null; // Clear previous solution if the user inputs more characters
 
   const strokesToSend = [...pendingStrokes];
 
@@ -205,9 +207,20 @@ async function solveEquation() {
 
     if (result.success) {
       equationResult.textContent = "  " + result.result;
+      // The backend already returns "= <value>" for arithmetic or "x = <value>" for algebra, 
+      // so we don't need to prepend an extra equals sign.
+      let prefix = "";
+      // If the result is an algebraic solve like "x = 3", we add an arrow instead of equals
+      if (!result.result.trim().startsWith("=")) {
+        prefix = "\u21d2 "; // =>
+      }
+      finalSolution = prefix + result.result;
+      redrawAll();
       setStatus("Solved!", "", false);
     } else {
       equationResult.textContent = "";
+      finalSolution = null;
+      redrawAll();
       setStatus(result.error, "", true);
     }
   } catch (err) {
@@ -293,9 +306,33 @@ function redrawAll() {
   drawCtx.clearRect(0, 0, w, h);
   displayCtx.clearRect(0, 0, w, h);
 
+  // Compute common baseline and base font size for relative sizing/alignment
+  let baseSize = 60; // fallback
+  let commonCenterY = h / 2; // fallback
+
+  const validChars = recognizedChars.filter(c => !c.isSuperscript && /[0-9a-zA-Z]/.test(c.math));
+  const charsToMeasure = validChars.length > 0 ? validChars : recognizedChars.filter(c => !c.isSuperscript);
+  
+  if (charsToMeasure.length > 0) {
+    let sizeSum = 0;
+    let centerYSum = 0;
+    for (const c of charsToMeasure) {
+      sizeSum += Math.max(c.bbox.maxX - c.bbox.minX, c.bbox.maxY - c.bbox.minY);
+      centerYSum += (c.bbox.minY + c.bbox.maxY) / 2;
+    }
+    baseSize = sizeSum / charsToMeasure.length;
+    commonCenterY = centerYSum / charsToMeasure.length;
+  }
+
   // Render digital characters on the display layer
+  let currentX = recognizedChars.length > 0 ? recognizedChars[0].bbox.minX : 50;
   for (const ch of recognizedChars) {
-    drawDigitalChar(ch);
+    currentX = drawDigitalChar(ch, baseSize, commonCenterY, currentX);
+  }
+
+  // Draw final solution if available
+  if (finalSolution) {
+    drawFinalSolution(finalSolution, baseSize, commonCenterY, currentX);
   }
 
   // Re-render pending ink strokes on the drawing layer
@@ -304,21 +341,68 @@ function redrawAll() {
   }
 }
 
-function drawDigitalChar(ch) {
-  const bbox = ch.bbox;
-  const bboxH = bbox.maxY - bbox.minY;
-  const centerX = (bbox.minX + bbox.maxX) / 2;
-  const centerY = (bbox.minY + bbox.maxY) / 2;
+function drawFinalSolution(solutionText, baseSize, commonCenterY, startX) {
+  let fontSize = Math.max(18, Math.min(baseSize * 0.85, 120));
+  
+  displayCtx.save();
+  displayCtx.font = `bold ${fontSize}px ${DIGITAL_FONT}`;
+  displayCtx.fillStyle = "#e63946"; // Give it a distinctive color like red
 
-  const fontSize = Math.max(18, Math.min(bboxH * 0.85, 120));
+  // Give a little extra padding before the "=" sign
+  let drawX = startX + (fontSize * 0.5);
+  let drawY = commonCenterY;
+  const padding = 20;
+
+  let textWidth = displayCtx.measureText(solutionText).width;
+
+  // If it overflows horizontally, place it on a new line below the equation
+  if (drawX + textWidth > displayCanvas.width - padding) {
+    drawX = 50; // Indent from left edge
+    drawY = commonCenterY + baseSize * 1.5; // Move a line down
+
+    // If it STILL overflows after moving down, scale the font size down proportionally
+    if (drawX + textWidth > displayCanvas.width - padding) {
+      const scaleFactor = (displayCanvas.width - padding - drawX) / textWidth;
+      fontSize = Math.max(14, fontSize * scaleFactor);
+      displayCtx.font = `bold ${fontSize}px ${DIGITAL_FONT}`;
+    }
+  }
+
+  displayCtx.textAlign = "left";
+  displayCtx.textBaseline = "middle";
+  displayCtx.fillText(solutionText, drawX, drawY);
+  displayCtx.restore();
+}
+
+function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
+  // Normalize font size to baseSize
+  let fontSize = baseSize * 0.85; 
+  let drawY = commonCenterY;
+
+  // Superscripts are smaller and higher up
+  if (ch.isSuperscript) {
+    fontSize *= 0.6;
+    drawY = commonCenterY - (baseSize * 0.4);
+  }
+
+  // Clamp font size
+  fontSize = Math.max(18, Math.min(fontSize, 120));
 
   displayCtx.save();
   displayCtx.font = `${fontSize}px ${DIGITAL_FONT}`;
+  
+  const textWidth = displayCtx.measureText(ch.display).width;
+  const drawX = startX + textWidth / 2;
+
   displayCtx.fillStyle = "#1a1a2e";
   displayCtx.textAlign = "center";
   displayCtx.textBaseline = "middle";
-  displayCtx.fillText(ch.display, centerX, centerY);
+  // Place character sequentially rather than at original drawing position
+  displayCtx.fillText(ch.display, drawX, drawY);
   displayCtx.restore();
+
+  // Return the next X position including a small gap
+  return startX + textWidth + (fontSize * 0.15);
 }
 
 function drawInkStroke(stroke) {
@@ -356,6 +440,7 @@ solveBtn.addEventListener("click", solveEquation);
 undoBtn.addEventListener("click", () => {
   if (recognizedChars.length > 0) {
     recognizedChars.pop();
+    finalSolution = null; // Clear if we undo a character
     updateEquationDisplay();
     redrawAll();
     setStatus("Undone last character", "");
@@ -366,6 +451,7 @@ clearBtn.addEventListener("click", () => {
   recognizedChars = [];
   pendingStrokes = [];
   currentStroke = [];
+  finalSolution = null; // Clear solution
   clearIdleTimer();
   updateEquationDisplay();
   equationResult.textContent = "";
