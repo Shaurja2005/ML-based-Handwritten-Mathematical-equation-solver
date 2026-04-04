@@ -10,7 +10,8 @@ catch invalid syntax before it reaches the parser.
 """
 
 import re
-from sympy import symbols, Eq, solve, oo, zoo, nan, S
+import numpy as np
+from sympy import symbols, Eq, solve, oo, zoo, nan, S, lambdify
 from sympy.parsing.sympy_parser import (
     parse_expr,
     standard_transformations,
@@ -25,8 +26,8 @@ TRANSFORMATIONS = standard_transformations + (
     convert_xor,
 )
 
-# Strict whitelist: digits, variable x, operators, parens, equals, decimal, spaces, Unicode math
-ALLOWED_PATTERN = re.compile(r'^[0-9x+\-*/^()=.\s\u00d7\u00f7]+$')
+# Strict whitelist: digits, variable x, y, operators, parens, equals, decimal, spaces, Unicode math
+ALLOWED_PATTERN = re.compile(r'^[0-9xy+\-*/^()=.\s\u00d7\u00f7]+$')
 
 
 def solve_equation(equation_str):
@@ -166,3 +167,73 @@ def _evaluate_expression_mode(math_str):
             formatted = str(round(float_val, 10))
 
     return {'success': True, 'result': f'= {formatted}', 'type': 'expression'}
+
+
+def generate_plot_data(equation_str):
+    """Generate 2D (x, y) plot data for a given mathematical string."""
+    equation_str = equation_str.strip()
+    if not equation_str:
+        return {'success': False, 'error': 'Empty equation'}
+
+    # Replace display Unicode with math operators
+    math_str = equation_str.replace('\u00d7', '*').replace('\u00f7', '/')
+
+    # Allow basic variables x and y
+    if not ALLOWED_PATTERN.match(math_str):
+        return {'success': False, 'error': 'Invalid characters for plotting'}
+
+    try:
+        # Normalize into an expression `f(x)` representing y
+        expr_str = math_str
+        if '=' in math_str:
+            parts = math_str.split('=')
+            if len(parts) == 2:
+                # User drew y = x^2 or similar
+                if parts[0].strip() == 'y':
+                    expr_str = parts[1]
+                elif parts[1].strip() == 'y':
+                    expr_str = parts[0]
+                else:
+                    # They drew x^2 = 4 (or something similar), plot the difference `x^2 - 4`
+                    expr_str = f"({parts[0]}) - ({parts[1]})"
+            else:
+                return {'success': False, 'error': 'Multiple equals signs not supported for plotting'}
+
+        expr = parse_expr(expr_str, transformations=TRANSFORMATIONS, local_dict={'x': x})
+
+        # Ensure x is the only free symbol (or it's a constant)
+        if hasattr(expr, 'free_symbols') and len(expr.free_symbols - {x}) > 0:
+            return {'success': False, 'error': f'Cannot plot functions with unknown variables: {expr.free_symbols - {x}}'}
+
+        # Generate X data spanning -10 to 10
+        x_vals = np.linspace(-10, 10, 400)
+
+        if not hasattr(expr, 'free_symbols') or not expr.free_symbols:
+            # Constant function, like 'y = 5'
+            y_vals = np.full_like(x_vals, float(expr.evalf()))
+        else:
+            f = lambdify(x, expr, modules=["numpy", "math"])
+            try:
+                y_vals = f(x_vals)
+            except Exception:
+                 # Fallback evaluation via list comp if lambdify to numpy array struggles 
+                 y_vals = np.array([float(f(xv)) for xv in x_vals])
+
+        # If it returns a single scalar, convert to array
+        if np.isscalar(y_vals):
+            y_vals = np.full_like(x_vals, y_vals)
+
+        # Standardize for JSON
+        if np.iscomplexobj(y_vals):
+            y_vals = np.real(y_vals)  # simple fallback: plot real part only
+
+        y_list = [None if np.isnan(y) or np.isinf(y) else round(float(y), 4) for y in y_vals]
+        x_list = [round(float(xv), 4) for xv in x_vals]
+
+        if all(y is None for y in y_list):
+            return {'success': False, 'error': 'Function is undefined on the real axis'}
+
+        return {'success': True, 'x': x_list, 'y': y_list, 'label': f"f(x) = {expr}"}
+
+    except Exception as e:
+        return {'success': False, 'error': f'Cannot plot function: {str(e)[:100]}'}

@@ -21,7 +21,7 @@ from flask_cors import CORS
 import pipeline as pipeline_original
 import pipeline_enhanced
 from spatial import detect_superscript
-from solver import solve_equation
+from solver import solve_equation, generate_plot_data
 
 # Active pipeline module (set during load_model)
 active_pipeline = None
@@ -212,6 +212,21 @@ def api_solve():
         return jsonify({'success': False, 'error': 'Empty equation'}), 400
 
     result = solve_equation(equation)
+    return jsonify(result)
+
+
+# ─── API: Plot ───────────────────────────────────────────────────
+@app.route('/api/plot', methods=['POST'])
+def api_plot():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No JSON body'}), 400
+
+    equation = data.get('equation', '').strip()
+    if not equation:
+        return jsonify({'success': False, 'error': 'Empty equation'}), 400
+
+    result = generate_plot_data(equation)
     return jsonify(result)
 
 

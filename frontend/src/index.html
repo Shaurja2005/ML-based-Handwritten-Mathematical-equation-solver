@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Handwritten Math Solver</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div id="app-shell">
@@ -18,6 +19,7 @@
         <div id="toolbar-actions">
           <button id="themeToggleBtn" type="button">Dark Mode</button>
           <button id="historyBtn" type="button">History</button>
+          <button id="plotBtn" type="button">Plot</button>
           <button id="solveBtn" type="button">Solve</button>
           <button id="undoBtn" type="button">Undo</button>
           <button id="clearBtn" type="button">Clear</button>
@@ -49,6 +51,19 @@
         <div id="status-bar">
           <span id="status-text">Draw a character to begin</span>
           <span id="confidence-text"></span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Plot Modal -->
+    <div id="plot-modal" class="hidden">
+      <div class="plot-modal-content">
+        <div class="plot-header">
+          <h3>Function Plot</h3>
+          <button id="closePlotBtn" type="button">&times;</button>
+        </div>
+        <div class="plot-body">
+          <canvas id="plot-canvas"></canvas>
         </div>
       </div>
     </div>

@@ -23,9 +23,13 @@ const undoBtn = document.getElementById("undoBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const historyBtn = document.getElementById("historyBtn");
+const plotBtn = document.getElementById("plotBtn");
 const historySidebar = document.getElementById("history-sidebar");
 const closeHistoryBtn = document.getElementById("closeHistoryBtn");
 const historyList = document.getElementById("history-list");
+const plotModal = document.getElementById("plot-modal");
+const closePlotBtn = document.getElementById("closePlotBtn");
+const plotCanvas = document.getElementById("plot-canvas");
 
 // ─── State ─────────────────────────────────────────────────────
 let isDrawing = false;
@@ -37,6 +41,7 @@ let idleTimer = null;
 let predicting = false; // Lock to prevent overlapping requests
 let finalSolution = null; // Store solved result to display on canvas
 let solveHistory = []; // Array to store past solutions
+let currentPlotChart = null; // Store current Chart.js instance
 
 // ─── Theme Toggle ──────────────────────────────────────────────
 let isDarkMode = localStorage.getItem("theme") === "dark";
@@ -561,7 +566,93 @@ function setStatus(text, confidence, isError) {
   confidenceText.textContent = confidence || "";
 }
 
+// ─── API: Plot ──────────────────────────────────────────────────
+async function plotEquation() {
+  const mathStr = buildMathString();
+  if (!mathStr) {
+    setStatus("Nothing to plot", "", true);
+    return;
+  }
+
+  setStatus("Generating plot...", "");
+
+  try {
+    const response = await fetch(`${API_BASE}/api/plot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ equation: mathStr }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      setStatus("Plot generated!", "", false);
+      addToHistory(mathStr, "Graph plotted", "\u21d2 Plot generated");
+      
+      // Destroy previous chart if exists
+      if (currentPlotChart) {
+        currentPlotChart.destroy();
+      }
+
+      plotModal.classList.remove("hidden");
+
+      const ctx = plotCanvas.getContext("2d");
+      
+      const gridColor = isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
+      const textColor = isDarkMode ? "#e5e5ea" : "#8e8e93";
+
+      currentPlotChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: result.x,
+          datasets: [{
+            label: result.label || "f(x)",
+            data: result.y,
+            borderColor: "#0a84ff",
+            backgroundColor: "rgba(10, 132, 255, 0.1)",
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { labels: { color: textColor } }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              position: 'bottom',
+              grid: { color: gridColor },
+              ticks: { color: textColor }
+            },
+            y: {
+              type: 'linear',
+              grid: { color: gridColor },
+              ticks: { color: textColor }
+            }
+          }
+        }
+      });
+    } else {
+      setStatus(result.error, "", true);
+    }
+  } catch (err) {
+    setStatus("Error generating plot \u2014 is the backend running?", "", true);
+    console.error(err);
+  }
+}
+
 // ─── Button Handlers ───────────────────────────────────────────
+plotBtn.addEventListener("click", plotEquation);
+
+closePlotBtn.addEventListener("click", () => {
+  plotModal.classList.add("hidden");
+});
+
 solveBtn.addEventListener("click", solveEquation);
 
 undoBtn.addEventListener("click", () => {
