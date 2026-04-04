@@ -180,10 +180,13 @@ def api_predict():
     # 7. Superscript detection (compare against previous character)
     prev = data.get('previousCharacter')
     prev_bbox = prev.get('bbox') if prev else None
+    
+    prev_math_char = prev.get('mathChar') if prev else None
+    
     is_superscript = detect_superscript(bbox, prev_bbox)
 
-    # Never classify math symbols/operators as superscript
-    if math_char in NON_SUPERSCRIPT_MATH_SYMBOLS:
+    # Never classify math symbols/operators as superscript, nor allow superscript over them
+    if math_char in NON_SUPERSCRIPT_MATH_SYMBOLS or (prev_math_char in NON_SUPERSCRIPT_MATH_SYMBOLS):
         is_superscript = False
 
     return jsonify({

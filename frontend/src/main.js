@@ -38,11 +38,14 @@ function resizeCanvases() {
   const w = container.clientWidth;
   const h = container.clientHeight;
 
-  if (displayCanvas.width === w && displayCanvas.height === h) return;
+  // Ensure canvas width can grow but doesn't instantly shrink
+  const targetW = Math.max(w, displayCanvas.width || w);
 
-  displayCanvas.width = w;
+  if (displayCanvas.width === targetW && displayCanvas.height === h) return;
+
+  displayCanvas.width = targetW;
   displayCanvas.height = h;
-  drawingCanvas.width = w;
+  drawingCanvas.width = targetW;
   drawingCanvas.height = h;
 
   redrawAll();
@@ -207,7 +210,7 @@ async function solveEquation() {
 
     if (result.success) {
       equationResult.textContent = "  " + result.result;
-      // The backend already returns "= <value>" for arithmetic or "x = <value>" for algebra, 
+      // The backend already returns "= <value>" for arithmetic or "x = <value>" for algebra,
       // so we don't need to prepend an extra equals sign.
       let prefix = "";
       // If the result is an algebraic solve like "x = 3", we add an arrow instead of equals
@@ -299,20 +302,22 @@ function updateEquationDisplay() {
 
 // ─── Canvas Redraw ─────────────────────────────────────────────
 function redrawAll() {
-  const w = drawingCanvas.width;
-  const h = drawingCanvas.height;
-
-  // Clear both layers
-  drawCtx.clearRect(0, 0, w, h);
-  displayCtx.clearRect(0, 0, w, h);
+  const container = document.getElementById("canvas-container");
+  const w = container.clientWidth;
+  const h = container.clientHeight;
 
   // Compute common baseline and base font size for relative sizing/alignment
   let baseSize = 60; // fallback
   let commonCenterY = h / 2; // fallback
 
-  const validChars = recognizedChars.filter(c => !c.isSuperscript && /[0-9a-zA-Z]/.test(c.math));
-  const charsToMeasure = validChars.length > 0 ? validChars : recognizedChars.filter(c => !c.isSuperscript);
-  
+  const validChars = recognizedChars.filter(
+    (c) => !c.isSuperscript && /[0-9a-zA-Z]/.test(c.math),
+  );
+  const charsToMeasure =
+    validChars.length > 0
+      ? validChars
+      : recognizedChars.filter((c) => !c.isSuperscript);
+
   if (charsToMeasure.length > 0) {
     let sizeSum = 0;
     let centerYSum = 0;
@@ -324,8 +329,42 @@ function redrawAll() {
     commonCenterY = centerYSum / charsToMeasure.length;
   }
 
+  // -- Pre-calculate required canvas width to add padding and avoid cutoff
+  let requiredWidth = w;
+  let startX = recognizedChars.length > 0 ? recognizedChars[0].bbox.minX : 50;
+  if (startX < 50) startX = 50; // enforce left padding
+  let currentX = startX;
+
+  displayCtx.save();
+  for (const ch of recognizedChars) {
+    let fontSize = baseSize * 0.85;
+    if (ch.isSuperscript) fontSize *= 0.6;
+    fontSize = Math.max(18, Math.min(fontSize, 120));
+    displayCtx.font = `${fontSize}px ${DIGITAL_FONT}`;
+    currentX += displayCtx.measureText(ch.display).width + fontSize * 0.15;
+  }
+
+  if (finalSolution) {
+    let fontSize = Math.max(18, Math.min(baseSize * 0.85, 120));
+    displayCtx.font = `bold ${fontSize}px ${DIGITAL_FONT}`;
+    currentX +=
+      fontSize * 0.5 + displayCtx.measureText(finalSolution).width + 100; // 100 right padding
+  }
+  displayCtx.restore();
+
+  requiredWidth = Math.max(w, currentX);
+
+  if (displayCanvas.width !== requiredWidth) {
+    displayCanvas.width = requiredWidth;
+    drawingCanvas.width = requiredWidth;
+  }
+
+  // Clear both layers
+  drawCtx.clearRect(0, 0, requiredWidth, h);
+  displayCtx.clearRect(0, 0, requiredWidth, h);
+
   // Render digital characters on the display layer
-  let currentX = recognizedChars.length > 0 ? recognizedChars[0].bbox.minX : 50;
+  currentX = startX;
   for (const ch of recognizedChars) {
     currentX = drawDigitalChar(ch, baseSize, commonCenterY, currentX);
   }
@@ -341,33 +380,19 @@ function redrawAll() {
   }
 }
 
-function drawFinalSolution(solutionText, baseSize, commonCenterY, startX) {
+function drawFinalSolution(solutionText, baseSize, commonCenterY, finalStartX) {
   let fontSize = Math.max(18, Math.min(baseSize * 0.85, 120));
-  
+
   displayCtx.save();
   displayCtx.font = `bold ${fontSize}px ${DIGITAL_FONT}`;
   displayCtx.fillStyle = "#e63946"; // Give it a distinctive color like red
 
   // Give a little extra padding before the "=" sign
-  let drawX = startX + (fontSize * 0.5);
+  let drawX = finalStartX + fontSize * 0.5;
   let drawY = commonCenterY;
-  const padding = 20;
 
-  let textWidth = displayCtx.measureText(solutionText).width;
-
-  // If it overflows horizontally, place it on a new line below the equation
-  if (drawX + textWidth > displayCanvas.width - padding) {
-    drawX = 50; // Indent from left edge
-    drawY = commonCenterY + baseSize * 1.5; // Move a line down
-
-    // If it STILL overflows after moving down, scale the font size down proportionally
-    if (drawX + textWidth > displayCanvas.width - padding) {
-      const scaleFactor = (displayCanvas.width - padding - drawX) / textWidth;
-      fontSize = Math.max(14, fontSize * scaleFactor);
-      displayCtx.font = `bold ${fontSize}px ${DIGITAL_FONT}`;
-    }
-  }
-
+  // We don't shift digits or wrap text anymore, just draw it straight.
+  // The canvas will naturally scroll horizontally due to pre-calculated resize.
   displayCtx.textAlign = "left";
   displayCtx.textBaseline = "middle";
   displayCtx.fillText(solutionText, drawX, drawY);
@@ -376,13 +401,13 @@ function drawFinalSolution(solutionText, baseSize, commonCenterY, startX) {
 
 function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
   // Normalize font size to baseSize
-  let fontSize = baseSize * 0.85; 
+  let fontSize = baseSize * 0.85;
   let drawY = commonCenterY;
 
   // Superscripts are smaller and higher up
   if (ch.isSuperscript) {
     fontSize *= 0.6;
-    drawY = commonCenterY - (baseSize * 0.4);
+    drawY = commonCenterY - baseSize * 0.4;
   }
 
   // Clamp font size
@@ -390,7 +415,7 @@ function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
 
   displayCtx.save();
   displayCtx.font = `${fontSize}px ${DIGITAL_FONT}`;
-  
+
   const textWidth = displayCtx.measureText(ch.display).width;
   const drawX = startX + textWidth / 2;
 
@@ -402,7 +427,7 @@ function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
   displayCtx.restore();
 
   // Return the next X position including a small gap
-  return startX + textWidth + (fontSize * 0.15);
+  return startX + textWidth + fontSize * 0.15;
 }
 
 function drawInkStroke(stroke) {

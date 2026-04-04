@@ -48,20 +48,20 @@ def detect_superscript(current_bbox, previous_bbox):
     if curr_cx <= prev_cx:
         return False
 
-    # Rule 2: Centroid must be in top 30% of previous character's bbox
-    # (Y=0 is top, so "top 30%" means Y < minY + 0.3*height)
-    top_30_line = previous_bbox['minY'] + 0.3 * prev_h
-    if curr_cy > top_30_line:
+    # Rule 2: Centroid must be in top 80% of previous character's bbox
+    # (Y=0 is top, so "top 80%" means Y < minY + 0.8*height)
+    top_80_line = previous_bbox['minY'] + 0.8 * prev_h
+    if curr_cy > top_80_line:
         return False
 
-    # Rule 3: Must be notably smaller
+    # Rule 3: Must be notably smaller (loosened to 80% of area)
     curr_area = curr_w * curr_h
     prev_area = prev_w * prev_h
-    if curr_area >= 0.6 * prev_area:
+    if curr_area >= 0.8 * prev_area:
         return False
 
-    # Rule 4: Bottom of current char above 60% height line of previous
-    bottom_threshold = previous_bbox['minY'] + 0.6 * prev_h
+    # Rule 4: Bottom of current char above 80% height line of previous
+    bottom_threshold = previous_bbox['minY'] + 0.8 * prev_h
     if current_bbox['maxY'] > bottom_threshold:
         return False
 

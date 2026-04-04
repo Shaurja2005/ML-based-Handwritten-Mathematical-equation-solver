@@ -112,8 +112,30 @@ def _solve_equation_mode(math_str):
             return {'success': True, 'result': 'Identity (true for all x)', 'type': 'equation'}
         return {'success': False, 'error': 'No solution found'}
 
-    result_parts = [f"x = {s}" for s in solutions]
-    return {'success': True, 'result': ', '.join(result_parts), 'type': 'equation'}
+    result_parts = []
+    for s in solutions:
+        s_str = str(s)
+        # If the solution string is complex (like exact forms of roots),
+        # try evaluating it to simpler decimals using evalf()
+        if len(s_str) > 15 or 'sqrt' in s_str or '**' in s_str or 'I' in s_str:
+            try:
+                # Try to evaluate to a numeric value (complex or real)
+                s_complex = complex(s.evalf())
+                if abs(s_complex.imag) < 1e-9:
+                    s_str = f"{s_complex.real:.4g}"
+                else:
+                    s_str = f"{s_complex.real:.4g} {'+' if s_complex.imag >= 0 else '-'} {abs(s_complex.imag):.4g}i"
+            except Exception:
+                # Fallback to evalf string if direct complex conversion fails
+                try:
+                    s_eval = s.evalf(5)
+                    s_str = str(s_eval).replace('I', 'i')
+                except Exception:
+                    pass
+        result_parts.append(f"x = {s_str}")
+
+    final_result = ', '.join(result_parts)
+    return {'success': True, 'result': final_result, 'type': 'equation'}
 
 
 def _evaluate_expression_mode(math_str):
