@@ -21,6 +21,11 @@ const confidenceText = document.getElementById("confidence-text");
 const solveBtn = document.getElementById("solveBtn");
 const undoBtn = document.getElementById("undoBtn");
 const clearBtn = document.getElementById("clearBtn");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const historyBtn = document.getElementById("historyBtn");
+const historySidebar = document.getElementById("history-sidebar");
+const closeHistoryBtn = document.getElementById("closeHistoryBtn");
+const historyList = document.getElementById("history-list");
 
 // ─── State ─────────────────────────────────────────────────────
 let isDrawing = false;
@@ -31,6 +36,99 @@ let recognizedChars = []; // {display, math, bbox, isSuperscript}
 let idleTimer = null;
 let predicting = false; // Lock to prevent overlapping requests
 let finalSolution = null; // Store solved result to display on canvas
+let solveHistory = []; // Array to store past solutions
+
+// ─── Theme Toggle ──────────────────────────────────────────────
+let isDarkMode = localStorage.getItem("theme") === "dark";
+if (isDarkMode) document.body.classList.add("dark-mode");
+updateThemeButtonText();
+
+themeToggleBtn.addEventListener("click", () => {
+  isDarkMode = !isDarkMode;
+  if (isDarkMode) {
+    document.body.classList.add("dark-mode");
+    localStorage.setItem("theme", "dark");
+  } else {
+    document.body.classList.remove("dark-mode");
+    localStorage.setItem("theme", "light");
+  }
+  updateThemeButtonText();
+  redrawAll();
+});
+
+function updateThemeButtonText() {
+  themeToggleBtn.textContent = isDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode";
+}
+
+function getDigitalTextColor() {
+  return isDarkMode ? "#ffffff" : "#1a1a2e";
+}
+
+function getStrokeColor() {
+  return isDarkMode ? "#e5e5ea" : "#333333";
+}
+
+// ─── History Sidebar ───────────────────────────────────────────
+historyBtn.addEventListener("click", () => {
+  historySidebar.classList.toggle("hidden");
+});
+
+closeHistoryBtn.addEventListener("click", () => {
+  historySidebar.classList.add("hidden");
+});
+
+function addToHistory(mathStr, result, solutionState) {
+  solveHistory.unshift({
+    mathStr,
+    result,
+    chars: JSON.parse(JSON.stringify(recognizedChars)),
+    solutionState,
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  historyList.innerHTML = "";
+  if (solveHistory.length === 0) {
+    historyList.innerHTML =
+      "<li style='padding: 16px; color: #8e8e93; font-size: 14px;'>No past solutions yet.</li>";
+    return;
+  }
+
+  solveHistory.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.className = "history-item";
+
+    // Create elements to match UI style
+    const mathDiv = document.createElement("div");
+    mathDiv.className = "history-item-math";
+    mathDiv.textContent = item.mathStr;
+
+    const resultDiv = document.createElement("div");
+    resultDiv.className = "history-item-result";
+    resultDiv.textContent = item.result;
+
+    li.appendChild(mathDiv);
+    li.appendChild(resultDiv);
+
+    // Restore logic on click
+    li.addEventListener("click", () => {
+      recognizedChars = JSON.parse(JSON.stringify(item.chars));
+      finalSolution = item.solutionState;
+      pendingStrokes = [];
+      updateEquationDisplay();
+      equationResult.textContent = "  " + item.result;
+      redrawAll();
+      setStatus("Restored from history", "", false);
+      if (window.innerWidth < 768) {
+        historySidebar.classList.add("hidden"); // Auto-close on mobile mapping
+      }
+    });
+
+    historyList.appendChild(li);
+  });
+}
+renderHistory();
 
 // ─── Canvas Sizing ─────────────────────────────────────────────
 function resizeCanvases() {
@@ -69,7 +167,7 @@ drawingCanvas.addEventListener("mousemove", (e) => {
   drawCtx.beginPath();
   drawCtx.lineCap = "round";
   drawCtx.lineJoin = "round";
-  drawCtx.strokeStyle = STROKE_COLOR;
+  drawCtx.strokeStyle = getStrokeColor();
   drawCtx.lineWidth = LINE_WIDTH;
   drawCtx.moveTo(lastPoint[0], lastPoint[1]);
   drawCtx.lineTo(e.offsetX, e.offsetY);
@@ -218,6 +316,10 @@ async function solveEquation() {
         prefix = "\u21d2 "; // =>
       }
       finalSolution = prefix + result.result;
+
+      // Save completely structured history
+      addToHistory(mathStr, result.result, finalSolution);
+
       redrawAll();
       setStatus("Solved!", "", false);
     } else {
@@ -419,7 +521,7 @@ function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
   const textWidth = displayCtx.measureText(ch.display).width;
   const drawX = startX + textWidth / 2;
 
-  displayCtx.fillStyle = "#1a1a2e";
+  displayCtx.fillStyle = getDigitalTextColor();
   displayCtx.textAlign = "center";
   displayCtx.textBaseline = "middle";
   // Place character sequentially rather than at original drawing position
@@ -436,7 +538,7 @@ function drawInkStroke(stroke) {
   drawCtx.beginPath();
   drawCtx.lineCap = "round";
   drawCtx.lineJoin = "round";
-  drawCtx.strokeStyle = STROKE_COLOR;
+  drawCtx.strokeStyle = getStrokeColor();
   drawCtx.lineWidth = LINE_WIDTH;
   drawCtx.moveTo(stroke[0].x, stroke[0].y);
 

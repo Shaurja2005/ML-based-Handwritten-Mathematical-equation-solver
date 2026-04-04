@@ -89,6 +89,147 @@ body {
 #canvas-stage {
   padding: 16px;
   min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+
+#main-content {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+#history-sidebar {
+  width: 300px;
+  background: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    width 0.3s ease,
+    margin 0.3s ease;
+}
+
+#history-sidebar.hidden {
+  width: 0;
+  border: none;
+  margin: 0;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f2f2f7;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.history-header button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #8e8e93;
+}
+
+.history-header button:hover {
+  color: #ff5f57;
+}
+
+#history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.history-item {
+  padding: 16px;
+  border-bottom: 1px solid #f2f2f7;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.history-item:hover {
+  background: #f2f2f7;
+}
+
+.history-item-math {
+  font-family: "Cambria Math", "Latin Modern Math", Georgia, serif;
+  font-size: 18px;
+  color: #1d1d1f;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-result {
+  font-family: "Cambria Math", "Latin Modern Math", Georgia, serif;
+  font-size: 16px;
+  color: #0a84ff;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dark Mode Overrides */
+body.dark-mode {
+  background: #121212;
+  color: #e5e5ea;
+}
+
+body.dark-mode #toolbar,
+body.dark-mode #bottom-bar,
+body.dark-mode #equation-bar {
+  background: #1c1c1e;
+  border-color: #38383a;
+}
+
+body.dark-mode #toolbar-title {
+  color: #e5e5ea;
+}
+
+body.dark-mode #toolbar-actions button {
+  background: #2c2c2e;
+  border-color: #38383a;
+  color: #e5e5ea;
+}
+
+body.dark-mode #toolbar-actions button:hover {
+  background: #3a3a3c;
+}
+
+body.dark-mode #canvas-container,
+body.dark-mode #history-sidebar {
+  background: #1c1c1e;
+  border-color: #38383a;
+}
+
+body.dark-mode .history-header,
+body.dark-mode .history-item {
+  border-bottom-color: #38383a;
+}
+
+body.dark-mode .history-item:hover {
+  background: #2c2c2e;
+}
+
+body.dark-mode .history-item-math,
+body.dark-mode #equation-display {
+  color: #e5e5ea;
+}
+
+body.dark-mode #equation-bar,
+body.dark-mode .history-header {
+  border-bottom-color: #38383a;
 }
 
 #canvas-container {

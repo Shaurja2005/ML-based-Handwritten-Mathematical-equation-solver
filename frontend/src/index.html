@@ -16,6 +16,8 @@
         </div>
         <div id="toolbar-title">Handwritten Math Solver</div>
         <div id="toolbar-actions">
+          <button id="themeToggleBtn" type="button">Dark Mode</button>
+          <button id="historyBtn" type="button">History</button>
           <button id="solveBtn" type="button">Solve</button>
           <button id="undoBtn" type="button">Undo</button>
           <button id="clearBtn" type="button">Clear</button>
@@ -23,10 +25,19 @@
       </header>
 
       <main id="canvas-stage">
-        <div id="canvas-container">
-          <canvas id="display-canvas"></canvas>
-          <canvas id="drawing-canvas"></canvas>
+        <div id="main-content">
+          <div id="canvas-container">
+            <canvas id="display-canvas"></canvas>
+            <canvas id="drawing-canvas"></canvas>
+          </div>
         </div>
+        <aside id="history-sidebar" class="hidden">
+          <div class="history-header">
+            <h3>History</h3>
+            <button id="closeHistoryBtn" type="button">&times;</button>
+          </div>
+          <ul id="history-list"></ul>
+        </aside>
       </main>
 
       <footer id="bottom-bar">
