@@ -20,14 +20,15 @@ from sympy.parsing.sympy_parser import (
 )
 
 x = symbols('x')
+y = symbols('y')
 
 TRANSFORMATIONS = standard_transformations + (
     implicit_multiplication_application,
     convert_xor,
 )
 
-# Strict whitelist: digits, variable x, y, operators, parens, equals, decimal, spaces, Unicode math
-ALLOWED_PATTERN = re.compile(r'^[0-9xy+\-*/^()=.\s\u00d7\u00f7]+$')
+# Strict whitelist: digits, variable x, y, operators, parens, equals, decimal, spaces, Unicode math, plus COMMA for Systems of Equations
+ALLOWED_PATTERN = re.compile(r'^[0-9xy+\-*/^()=.,\s\u00d7\u00f7]+$')
 
 
 def solve_equation(equation_str):
@@ -65,7 +66,9 @@ def solve_equation(equation_str):
         return {'success': False, 'error': 'Unbalanced parentheses'}
 
     try:
-        if '=' in math_str:
+        if ',' in math_str:
+            return _solve_system_mode(math_str)
+        elif '=' in math_str:
             return _solve_equation_mode(math_str)
         else:
             return _evaluate_expression_mode(math_str)
@@ -82,7 +85,7 @@ def solve_equation(equation_str):
 
 
 def _solve_equation_mode(math_str):
-    """Handle equations containing '=' — solve for x."""
+    """Handle equations containing '=' — solve for x or y."""
     parts = math_str.split('=')
     if len(parts) != 2:
         return {'success': False, 'error': 'Invalid equation: multiple equals signs'}
@@ -100,17 +103,27 @@ def _solve_equation_mode(math_str):
     if not lhs_str and rhs_str:
         return {'success': False, 'error': 'Incomplete equation (empty side)'}
 
-    lhs = parse_expr(lhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x})
-    rhs = parse_expr(rhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x})
+    lhs = parse_expr(lhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
+    rhs = parse_expr(rhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
 
     eq = Eq(lhs, rhs)
-    solutions = solve(eq, x)
+    
+    # Determine which variable to solve for
+    free_vars = eq.free_symbols
+    if len(free_vars) > 1:
+        return {'success': False, 'error': 'Cannot solve equation with multiple variables. Add another equation for a system.'}
+    elif len(free_vars) == 1:
+        var_to_solve = list(free_vars)[0]
+    else:
+        var_to_solve = x # Default to x if no vars found
+
+    solutions = solve(eq, var_to_solve)
 
     if not solutions:
         # Check for identity (e.g., x = x)
         simplified = lhs - rhs
         if simplified.simplify() == 0:
-            return {'success': True, 'result': 'Identity (true for all x)', 'type': 'equation'}
+            return {'success': True, 'result': f'Identity (true for all {var_to_solve.name})', 'type': 'equation'}
         return {'success': False, 'error': 'No solution found'}
 
     result_parts = []
@@ -133,20 +146,76 @@ def _solve_equation_mode(math_str):
                     s_str = str(s_eval).replace('I', 'i')
                 except Exception:
                     pass
-        result_parts.append(f"x = {s_str}")
+        result_parts.append(f"{var_to_solve.name} = {s_str}")
 
     final_result = ', '.join(result_parts)
     return {'success': True, 'result': final_result, 'type': 'equation'}
 
 
+def _solve_system_mode(math_str):
+    """Handle comma separated string of equations by solving them as a system."""
+    eq_strings = [eq_str.strip() for eq_str in math_str.split(',') if eq_str.strip()]
+    
+    if len(eq_strings) < 1:
+        return {'success': False, 'error': 'No equations provided'}
+    
+    equations = []
+    
+    for eq_str in eq_strings:
+        parts = eq_str.split('=')
+        if len(parts) != 2:
+            return {'success': False, 'error': f'Invalid equation in system: {eq_str}'}
+        
+        lhs_str, rhs_str = parts[0].strip(), parts[1].strip()
+        if not lhs_str or not rhs_str:
+            return {'success': False, 'error': f'Incomplete equation: {eq_str}'}
+            
+        lhs = parse_expr(lhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
+        rhs = parse_expr(rhs_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
+        equations.append(Eq(lhs, rhs))
+        
+    try:
+        solutions = solve(equations, (x, y))
+        
+        if not solutions:
+            return {'success': False, 'error': 'No solution exists for the system'}
+            
+        if isinstance(solutions, dict):
+            # Form is {x: val, y: val}
+            res = ", ".join(f"{str(v)} = {solutions[v].evalf(4)}" for v in solutions)
+            return {'success': True, 'result': res, 'type': 'system'}
+        
+        if isinstance(solutions, list) and len(solutions) > 0:
+            if isinstance(solutions[0], tuple):
+                # Multiple pairs e.g., [(x1,y1), (x2,y2)]
+                res_parts = []
+                for sol in solutions:
+                    parts = []
+                    for var, val in zip((x,y), sol):
+                        parts.append(f"{var} = {val.evalf(4)}")
+                    res_parts.append("(" + ", ".join(parts) + ")")
+                res = " OR ".join(res_parts)
+                return {'success': True, 'result': res, 'type': 'system'}
+            elif isinstance(solutions[0], dict):
+                # Multiple dicts e.g., [{x: 1, y: 2}]
+                res_parts = []
+                for sol in solutions:
+                    res_parts.append("(" + ", ".join(f"{str(v)} = {sol[v].evalf(4)}" for v in sol) + ")")
+                res = " OR ".join(res_parts)
+                return {'success': True, 'result': res, 'type': 'system'}
+                
+        return {'success': False, 'error': 'Could not format solution'}
+    except Exception as e:
+        return {'success': False, 'error': f'Failed to solve system: {str(e)}'}
+
 def _evaluate_expression_mode(math_str):
     """Handle pure expressions (no '=') — evaluate and auto-append '='."""
-    expr = parse_expr(math_str, transformations=TRANSFORMATIONS, local_dict={'x': x})
+    expr = parse_expr(math_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
 
     if expr.free_symbols:
         return {
             'success': False,
-            'error': 'Expression contains variable x but no equation to solve (missing =)'
+            'error': f'Expression contains variable {list(expr.free_symbols)[0].name} but no equation to solve (missing =)'
         }
 
     if not expr.is_number:
@@ -174,6 +243,9 @@ def generate_plot_data(equation_str):
     equation_str = equation_str.strip()
     if not equation_str:
         return {'success': False, 'error': 'Empty equation'}
+    
+    if ',' in equation_str:
+         return {'success': False, 'error': 'Multiple equations / Systems cannot be plotted yet'}
 
     # Replace display Unicode with math operators
     math_str = equation_str.replace('\u00d7', '*').replace('\u00f7', '/')
@@ -199,11 +271,11 @@ def generate_plot_data(equation_str):
             else:
                 return {'success': False, 'error': 'Multiple equals signs not supported for plotting'}
 
-        expr = parse_expr(expr_str, transformations=TRANSFORMATIONS, local_dict={'x': x})
+        expr = parse_expr(expr_str, transformations=TRANSFORMATIONS, local_dict={'x': x, 'y': y})
 
         # Ensure x is the only free symbol (or it's a constant)
-        if hasattr(expr, 'free_symbols') and len(expr.free_symbols - {x}) > 0:
-            return {'success': False, 'error': f'Cannot plot functions with unknown variables: {expr.free_symbols - {x}}'}
+        if hasattr(expr, 'free_symbols') and len(expr.free_symbols - {x, y}) > 0:
+            return {'success': False, 'error': f'Cannot plot functions with unknown variables: {expr.free_symbols - {x, y}}'}
 
         # Generate X data spanning -10 to 10
         x_vals = np.linspace(-10, 10, 400)

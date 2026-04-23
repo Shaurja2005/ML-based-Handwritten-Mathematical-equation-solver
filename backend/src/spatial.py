@@ -44,24 +44,24 @@ def detect_superscript(current_bbox, previous_bbox):
     curr_cx = (current_bbox['minX'] + current_bbox['maxX']) / 2
     prev_cx = (previous_bbox['minX'] + previous_bbox['maxX']) / 2
 
-    # Rule 1: Must be positioned to the right
-    if curr_cx <= prev_cx:
+    # Rule 1: Must be roughly positioned to the right (allowing slight overlap)
+    if curr_cx < prev_cx - 0.2 * prev_w:
         return False
 
-    # Rule 2: Centroid must be in top 80% of previous character's bbox
-    # (Y=0 is top, so "top 80%" means Y < minY + 0.8*height)
-    top_80_line = previous_bbox['minY'] + 0.8 * prev_h
-    if curr_cy > top_80_line:
+    # Rule 2: Centroid must be in the upper half of the previous character's bbox.
+    # A true superscript is drawn significantly higher.
+    mid_y_line = previous_bbox['minY'] + 0.5 * prev_h
+    if curr_cy > mid_y_line:
         return False
 
-    # Rule 3: Must be notably smaller (loosened to 80% of area)
-    curr_area = curr_w * curr_h
-    prev_area = prev_w * prev_h
-    if curr_area >= 0.8 * prev_area:
+    # Rule 3: Height check instead of strict area
+    # Superscripts shouldn't be much taller than the base character.
+    if curr_h > 1.3 * prev_h:
         return False
 
-    # Rule 4: Bottom of current char above 80% height line of previous
-    bottom_threshold = previous_bbox['minY'] + 0.8 * prev_h
+    # Rule 4: The bottom edge of the superscript MUST NOT drag down to the baseline.
+    # It must sit distinctly above the bottom baseline of the previous rendered character.
+    bottom_threshold = previous_bbox['maxY'] - 0.15 * prev_h
     if current_bbox['maxY'] > bottom_threshold:
         return False
 

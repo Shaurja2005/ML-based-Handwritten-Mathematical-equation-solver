@@ -19,6 +19,8 @@ const equationResult = document.getElementById("equation-result");
 const statusText = document.getElementById("status-text");
 const confidenceText = document.getElementById("confidence-text");
 const solveBtn = document.getElementById("solveBtn");
+const addEqBtn = document.getElementById("addEqBtn");
+const powerBtn = document.getElementById("powerBtn");
 const undoBtn = document.getElementById("undoBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
@@ -42,6 +44,7 @@ let predicting = false; // Lock to prevent overlapping requests
 let finalSolution = null; // Store solved result to display on canvas
 let solveHistory = []; // Array to store past solutions
 let currentPlotChart = null; // Store current Chart.js instance
+let queuedEquations = []; // To allow solving systems of equations
 
 // ─── Theme Toggle ──────────────────────────────────────────────
 let isDarkMode = localStorage.getItem("theme") === "dark";
@@ -298,10 +301,19 @@ async function sendForPrediction() {
 // ─── API: Solve ────────────────────────────────────────────────
 async function solveEquation() {
   const mathStr = buildMathString();
-  if (!mathStr) {
+  let equationsToSolve = [...queuedEquations];
+  
+  if (mathStr) {
+    equationsToSolve.push(mathStr);
+  }
+
+  if (equationsToSolve.length === 0) {
     setStatus("Nothing to solve", "", true);
     return;
   }
+
+  // Join equations with a comma for the backend
+  const equationPayload = equationsToSolve.join(",");
 
   setStatus("Solving...", "");
 
@@ -309,7 +321,7 @@ async function solveEquation() {
     const response = await fetch(`${API_BASE}/api/solve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ equation: mathStr }),
+      body: JSON.stringify({ equation: equationPayload }),
     });
 
     const result = await response.json();
@@ -326,7 +338,10 @@ async function solveEquation() {
       finalSolution = prefix + result.result;
 
       // Save completely structured history
-      addToHistory(mathStr, result.result, finalSolution);
+      addToHistory(equationPayload, result.result, finalSolution);
+      
+      // Clear queue after successful solve
+      queuedEquations = [];
 
       redrawAll();
       setStatus("Solved!", "", false);
@@ -406,9 +421,63 @@ function escapeHTML(str) {
 }
 
 function updateEquationDisplay() {
-  equationDisplay.innerHTML = buildDisplayHTML();
+  let baseHTML = buildDisplayHTML();
+  
+  if (queuedEquations.length > 0) {
+    const queueHTML = queuedEquations.map(escapeHTML).join("<br>");
+    equationDisplay.innerHTML = `<div style="color: #888;">${queueHTML}</div> ${baseHTML}`;
+  } else {
+    equationDisplay.innerHTML = baseHTML;
+  }
   equationResult.textContent = "";
 }
+
+// ─── API: Add Eq ───────────────────────────────────────────────
+addEqBtn.addEventListener("click", () => {
+  const mathStr = buildMathString();
+  if (mathStr) {
+    queuedEquations.push(mathStr);
+    recognizedChars = [];
+    pendingStrokes = [];
+    finalSolution = null;
+    updateEquationDisplay();
+    redrawAll();
+    setStatus(`Equation added (${queuedEquations.length} total)`, "", false);
+  }
+});
+
+// ─── API: Match Power ──────────────────────────────────────────
+powerBtn.addEventListener("click", () => {
+  if (recognizedChars.length === 0) {
+    setStatus("No character available", "", true);
+    return;
+  }
+  const lastChar = recognizedChars[recognizedChars.length - 1];
+
+  // Must be a base alphanumeric character (not a symbol, not a bracket, and not already a superscript)
+  if (!/^[0-9a-zA-Z]$/.test(lastChar.math) || lastChar.isSuperscript) {
+    setStatus("Select a valid variable or digit as a base", "", true);
+    return;
+  }
+
+  const powerInput = window.prompt(`Apply power to '${lastChar.display}':\n(Enter exponent to append)`);
+  if (!powerInput || powerInput.trim() === "") return;
+
+  const bBoxFallback = lastChar.renderedBbox || lastChar.bbox;
+  
+  for (const char of powerInput.trim()) {
+    recognizedChars.push({
+      display: char,
+      math: char,
+      bbox: bBoxFallback, 
+      isSuperscript: true
+    });
+  }
+
+  updateEquationDisplay();
+  redrawAll();
+  setStatus("Power added", "", false);
+});
 
 // ─── Canvas Redraw ─────────────────────────────────────────────
 function redrawAll() {
@@ -429,14 +498,12 @@ function redrawAll() {
       : recognizedChars.filter((c) => !c.isSuperscript);
 
   if (charsToMeasure.length > 0) {
-    let sizeSum = 0;
-    let centerYSum = 0;
-    for (const c of charsToMeasure) {
-      sizeSum += Math.max(c.bbox.maxX - c.bbox.minX, c.bbox.maxY - c.bbox.minY);
-      centerYSum += (c.bbox.minY + c.bbox.maxY) / 2;
-    }
-    baseSize = sizeSum / charsToMeasure.length;
-    commonCenterY = centerYSum / charsToMeasure.length;
+    // Only use the FIRST valid character to establish the baseline size and position.
+    // This stops the entire equation from vertically scaling or shifting
+    // as new characters (with different sizes or drawn at different heights) are added.
+    const firstC = charsToMeasure[0];
+    baseSize = Math.max(firstC.bbox.maxX - firstC.bbox.minX, firstC.bbox.maxY - firstC.bbox.minY);
+    commonCenterY = (firstC.bbox.minY + firstC.bbox.maxY) / 2;
   }
 
   // -- Pre-calculate required canvas width to add padding and avoid cutoff
@@ -682,6 +749,7 @@ clearBtn.addEventListener("click", () => {
   pendingStrokes = [];
   currentStroke = [];
   finalSolution = null; // Clear solution
+  queuedEquations = []; // Clear equations queue
   clearIdleTimer();
   updateEquationDisplay();
   equationResult.textContent = "";

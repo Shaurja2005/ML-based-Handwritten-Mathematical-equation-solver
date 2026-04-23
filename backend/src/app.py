@@ -60,7 +60,7 @@ MATH_MAP = {
     '\u2212': '-',
 }
 
-NON_SUPERSCRIPT_MATH_SYMBOLS = {'+', '-', '*', '/', '=', '\u00d7', '\u00f7'}
+NON_SUPERSCRIPT_MATH_SYMBOLS = {'+', '-', '*', '/', '=', '\u00d7', '\u00f7', '(', ')'}
 
 # ─── Load Model & Scaler ────────────────────────────────────────
 model = None
@@ -181,7 +181,8 @@ def api_predict():
     prev = data.get('previousCharacter')
     prev_bbox = prev.get('bbox') if prev else None
     
-    prev_math_char = prev.get('mathChar') if prev else None
+    # Frontend passes the math character as 'math' instead of 'mathChar'
+    prev_math_char = (prev.get('math') or prev.get('mathChar')) if prev else None
     
     is_superscript = detect_superscript(bbox, prev_bbox)
 
