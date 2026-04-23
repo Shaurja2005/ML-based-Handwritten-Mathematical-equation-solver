@@ -232,7 +232,10 @@ async function sendForPrediction() {
   let previousCharacter = null;
   if (recognizedChars.length > 0) {
     const last = recognizedChars[recognizedChars.length - 1];
-    previousCharacter = { bbox: last.bbox };
+    // Use the rendered bounding box (if available) so that new strokes 
+    // are correctly compared to the visually shifted position.
+    const lastBbox = last.renderedBbox || last.bbox;
+    previousCharacter = { bbox: lastBbox, ...last };
   }
 
   setStatus("Recognizing...", "");
@@ -525,6 +528,15 @@ function drawDigitalChar(ch, baseSize, commonCenterY, startX) {
 
   const textWidth = displayCtx.measureText(ch.display).width;
   const drawX = startX + textWidth / 2;
+  
+  // Track the rendered bounding box so that newly drawn strokes
+  // are compared against the visually shifted, rendered position.
+  ch.renderedBbox = {
+    minX: drawX - textWidth / 2,
+    minY: drawY - fontSize / 2,
+    maxX: drawX + textWidth / 2,
+    maxY: drawY + fontSize / 2
+  };
 
   displayCtx.fillStyle = getDigitalTextColor();
   displayCtx.textAlign = "center";
